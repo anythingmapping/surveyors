@@ -1,64 +1,167 @@
 import './style.css'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader'
+
+import * as dat from 'lil-gui'
+
 
 /**
  * Base
  */
+// Debug
+const gui = new dat.GUI()
+
 // Canvas
 const canvas = document.querySelector('canvas.webgl')
-
-// Sizes
-const sizes = {
-    width: 800,
-    height: 600
-}
-
-// Cursor
-const cursor = {
-    x: 0,
-    y: 0
-}
-
-window.addEventListener('mousemove', (event) =>
-{
-    cursor.x = event.clientX / sizes.width - 0.5
-    cursor.y = - (event.clientY / sizes.height - 0.5)
-})
 
 // Scene
 const scene = new THREE.Scene()
 
-// Object
-const mesh = new THREE.Mesh(
-    new THREE.BoxGeometry(1, 1, 1, 5, 5, 5),
-    new THREE.MeshBasicMaterial({ color: 0xff0000 })
-)
-scene.add(mesh)
+/**
+ * Models
+ */
+const gltfLoader = new GLTFLoader()
 
-// Camera
+let current_file_in_memory = '';
+
+function load_survey(file) {
+    current_file_in_memory = file
+    gltfLoader.load(
+        file,
+        (gltf) => {
+            console.log('success')
+            console.log(gltf)
+
+            // let children = [...gltf.scene.children]
+            // for (let child of children) {
+            //     scene.add(child)
+            // }
+            // gltf.scene.scale.set(0.025, 0.025, 0.025)
+            scene.add(gltf.scene)
+
+        },
+        (progress) => {
+            console.log('progress')
+            console.log(progress)
+        },
+        (error) => {
+            console.log('error')
+            console.log(error)
+        }
+    )
+}
+
+
+
+let file_list = ['/models/Duck/glTF/Duck.gltf']
+for (let i of file_list) {
+    console.log(i);
+    console.log(scene)
+    load_survey(i);
+}
+
+
+function object_switch() {
+    console.log("object switch")
+    scene.remove(current_file_in_memory)
+        // load_survey('/models/Duck/glTF/Duck.gltf')
+}
+
+let btn = document.querySelector('.button');
+btn.addEventListener('click', object_switch);
+
+
+
+/**
+ * Floor
+ */
+const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(10, 10),
+    new THREE.MeshStandardMaterial({
+        color: '#444444',
+        metalness: 0,
+        roughness: 0.5
+    })
+)
+floor.receiveShadow = true
+floor.rotation.x = -Math.PI * 0.5
+scene.add(floor)
+
+/**
+ * Lights
+ */
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.8)
+scene.add(ambientLight)
+
+const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6)
+directionalLight.castShadow = true
+directionalLight.shadow.mapSize.set(1024, 1024)
+directionalLight.shadow.camera.far = 15
+directionalLight.shadow.camera.left = -7
+directionalLight.shadow.camera.top = 7
+directionalLight.shadow.camera.right = 7
+directionalLight.shadow.camera.bottom = -7
+directionalLight.position.set(5, 5, 5)
+scene.add(directionalLight)
+
+/**
+ * Sizes
+ */
+const sizes = {
+    width: window.innerWidth,
+    height: window.innerHeight
+}
+
+window.addEventListener('resize', () => {
+    // Update sizes
+    sizes.width = window.innerWidth
+    sizes.height = window.innerHeight
+
+    // Update camera
+    camera.aspect = sizes.width / sizes.height
+    camera.updateProjectionMatrix()
+
+    // Update renderer
+    renderer.setSize(sizes.width, sizes.height)
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+})
+
+/**
+ * Camera
+ */
+// Base camera
 const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
-// const aspectRatio = sizes.width / sizes.height
-// const camera = new THREE.OrthographicCamera(- 1 * aspectRatio, 1 * aspectRatio, 1, - 1, 0.1, 100)
-camera.position.z = 3
+camera.position.set(2, 2, 2)
 scene.add(camera)
 
 // Controls
 const controls = new OrbitControls(camera, canvas)
+controls.target.set(0, 0.75, 0)
 controls.enableDamping = true
 
-// Renderer
+/**
+ * Renderer
+ */
 const renderer = new THREE.WebGLRenderer({
     canvas: canvas
 })
+renderer.shadowMap.enabled = true
+renderer.shadowMap.type = THREE.PCFSoftShadowMap
 renderer.setSize(sizes.width, sizes.height)
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
-// Animate
+/**
+ * Animate
+ */
 const clock = new THREE.Clock()
+let previousTime = 0
 
-const tick = () =>
-{
+const tick = () => {
     const elapsedTime = clock.getElapsedTime()
+    const deltaTime = elapsedTime - previousTime
+    previousTime = elapsedTime
 
     // Update controls
     controls.update()
